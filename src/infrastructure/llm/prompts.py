@@ -8,7 +8,16 @@ Return a structured JSON analysis with the following format:
   "confidence": 0.0 to 1.0,
   "reasoning": "Explanation for the signal.",
   "key_levels": {"support_1": 150.5, "resistance_1": 160.0}
-}"""
+}
+
+When borsapy_data is available, incorporate the following Turkish market specifics:
+- foreign_ratio: Yabancı yatırımcı oranı (% olarak)
+- free_float: Halka açıklık oranı
+- target_price: Analist hedef fiyatı (target_mean)
+- recommendation: AL/TUT/SAT dağılımı (strong_buy, buy, hold, sell, strong_sell)
+- P/E and P/B ratios: Hisse değerleme için önemli çarpanlar
+- dividend_yield: Temettü verimi
+Use these metrics to enhance your analysis especially for BIST stocks."""
 
 SENTIMENT_ANALYSIS_SYSTEM_PROMPT = """Analyze the sentiment of the following news headlines/summaries.
 Return a JSON object:

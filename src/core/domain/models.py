@@ -122,6 +122,7 @@ class AnalysisResult:
     llm_analysis: Optional[LLMAnalysisResult] = None
     final_signal: Optional[Signal] = None
     contradictions: List[str] = field(default_factory=list)
+    borsapy_data: Optional[dict] = None
 
 @dataclass
 class PortfolioPosition:

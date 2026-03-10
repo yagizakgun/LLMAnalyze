@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 import logging
 
 import borsapy as bp
@@ -158,3 +158,147 @@ class BorsapyProvider(IMarketDataProvider):
         except Exception as e:
             logger.error(f"Error fetching info for {symbol}: {e}")
             return StockInfo(symbol=symbol, company_name=symbol)
+
+    async def get_stock_fundamentals(self, symbol: str) -> Optional[dict]:
+        """Fetches fundamental analysis data (P/E, P/B, dividend yield, etc.) from borsapy."""
+        try:
+            def _fetch():
+                ticker = bp.Ticker(symbol)
+                info = ticker.info
+                fast_info = ticker.fast_info
+
+                if info is None and fast_info is None:
+                    return None
+
+                result = {}
+
+                # Extract from info (EnrichedInfo)
+                if info is not None:
+                    data = info.todict() if hasattr(info, 'todict') else {}
+                    logger.debug(f"Borsapy info keys for {symbol}: {list(data.keys()) if data else 'empty'}")
+
+                    # Try multiple field names for P/E ratio
+                    pe_value = (
+                        data.get('pe_ratio') or
+                        data.get('trailingPE') or
+                        data.get('forwardPE') or
+                        data.get('pe')
+                    )
+
+                    # Try multiple field names for P/B ratio
+                    pb_value = (
+                        data.get('pb_ratio') or
+                        data.get('priceToBook') or
+                        data.get('pb')
+                    )
+
+                    # Try multiple field names for dividend yield
+                    div_value = (
+                        data.get('dividend_yield') or
+                        data.get('dividendYield') or
+                        data.get('dividend_yield_percent')
+                    )
+
+                    result.update({
+                        "pe_ratio": pe_value,
+                        "pb_ratio": pb_value,
+                        "dividend_yield": div_value,
+                        "dividend_rate": data.get('dividend_rate'),
+                        "eps": data.get('eps'),
+                        "book_value": data.get('book_value'),
+                        "market_cap": data.get('marketCap'),
+                        "free_float": data.get('free_float'),
+                        "foreign_ratio": data.get('foreign_ratio'),
+                        "sector": data.get('sector'),
+                        "industry": data.get('industry'),
+                        "description": data.get('description'),
+                        "website": data.get('website'),
+                    })
+
+                # Extract from fast_info
+                if fast_info is not None:
+                    fast_data = fast_info.todict() if hasattr(fast_info, 'todict') else {}
+                    logger.debug(f"Borsapy fast_info keys for {symbol}: {list(fast_data.keys()) if fast_data else 'empty'}")
+                    # Merge fast_info if not already present
+                    for key in ['market_cap', 'free_float', 'foreign_ratio']:
+                        if key not in result or result[key] is None:
+                            result[key] = fast_data.get(key)
+
+                # Clean up None values
+                result = {k: v for k, v in result.items() if v is not None}
+
+                logger.debug(f"Borsapy fundamentals result for {symbol}: {result}")
+                return result if result else None
+
+            return await asyncio.to_thread(_fetch)
+
+        except Exception as e:
+            logger.error(f"Error fetching fundamentals for {symbol}: {e}")
+            return None
+
+    async def get_analyst_data(self, symbol: str) -> Optional[dict]:
+        """Fetches analyst price targets and recommendations from borsapy."""
+        try:
+            def _fetch():
+                ticker = bp.Ticker(symbol)
+                result = {}
+
+                # Get analyst price targets - try multiple method names
+                methods_tried = []
+                targets_found = False
+
+                for method_name in ['analyst_price_targets', 'analysis', 'analyst', 'price_targets']:
+                    try:
+                        methods_tried.append(method_name)
+                        targets = getattr(ticker, method_name, None)
+                        if targets is not None and targets != {}:
+                            targets_dict = targets.todict() if hasattr(targets, 'todict') else (targets if isinstance(targets, dict) else {})
+                            logger.debug(f"Borsapy analyst method '{method_name}' result for {symbol}: {targets_dict}")
+                            result.update({
+                                "target_low": targets_dict.get('low'),
+                                "target_mid": targets_dict.get('mid'),
+                                "target_high": targets_dict.get('high'),
+                                "target_mean": targets_dict.get('mean'),
+                            })
+                            targets_found = True
+                            break
+                    except Exception as e:
+                        logger.debug(f"Method '{method_name}' failed for {symbol}: {e}")
+
+                if not targets_found:
+                    logger.debug(f"Tried analyst methods {methods_tried} for {symbol}, none returned data")
+
+                # Get recommendations summary - try multiple method names
+                rec_methods_tried = []
+                rec_found = False
+
+                for method_name in ['recommendations_summary', 'recommendations', 'analyst_recommendations']:
+                    try:
+                        rec_methods_tried.append(method_name)
+                        recommendations = getattr(ticker, method_name, None)
+                        if recommendations is not None and recommendations != {}:
+                            rec_dict = recommendations.todict() if hasattr(recommendations, 'todict') else (recommendations if isinstance(recommendations, dict) else {})
+                            logger.debug(f"Borsapy recommendations method '{method_name}' result for {symbol}: {rec_dict}")
+                            result.update({
+                                "strong_buy": rec_dict.get('strongBuy', 0),
+                                "buy": rec_dict.get('buy', 0),
+                                "hold": rec_dict.get('hold', 0),
+                                "sell": rec_dict.get('sell', 0),
+                                "strong_sell": rec_dict.get('strongSell', 0),
+                            })
+                            rec_found = True
+                            break
+                    except Exception as e:
+                        logger.debug(f"Method '{method_name}' failed for {symbol}: {e}")
+
+                if not rec_found:
+                    logger.debug(f"Tried recommendation methods {rec_methods_tried} for {symbol}, none returned data")
+
+                logger.debug(f"Borsapy analyst_data result for {symbol}: {result}")
+                return result if result else None
+
+            return await asyncio.to_thread(_fetch)
+
+        except Exception as e:
+            logger.error(f"Error fetching analyst data for {symbol}: {e}")
+            return None

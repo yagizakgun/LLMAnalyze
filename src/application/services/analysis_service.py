@@ -53,7 +53,7 @@ class AnalysisService:
 
             # 1. Fetch Market Data & Technical Analysis
             price_task = market_data.get_current_price(symbol)
-            ohlcv_task = market_data.get_stock_data(symbol, timeframe, limit=250)
+            ohlcv_task = market_data.get_stock_data(symbol, timeframe, limit=500)
             news_task = self.news.get_news_for_symbol(symbol, limit=5)
             
             # Run IO bound tasks concurrently
@@ -64,13 +64,24 @@ class AnalysisService:
             # Calculate Indicators
             indicators = self.ta.calculate_indicators(ohlcv_data)
             ta_signal = self.ta.generate_signal(symbol, ohlcv_data, indicators)
-            
+
             # 2. Setup Context for LLM
+            # Fetch Borsapy-specific data if using Borsapy provider
+            borsapy_data = {}
+            if market_provider == MarketDataProviderType.BORSAPY:
+                fundamentals_task = market_data.get_stock_fundamentals(symbol)
+                analyst_task = market_data.get_analyst_data(symbol)
+                fundamentals, analyst = await asyncio.gather(fundamentals_task, analyst_task)
+                borsapy_data = {
+                    "fundamentals": fundamentals,
+                    "analyst_data": analyst
+                }
+
             context_data = {
                 "symbol": symbol,
                 "current_price": current_price,
                 "recent_candles": [
-                    {"time": str(d.timestamp), "close": d.close, "volume": d.volume} 
+                    {"time": str(d.timestamp), "close": d.close, "volume": d.volume}
                     for d in ohlcv_data[-5:]
                 ],
                 "indicators": {
@@ -80,7 +91,8 @@ class AnalysisService:
                     "sma_50": indicators.sma_50,
                     "sma_200": indicators.sma_200
                 },
-                "news_headlines": [a.title for a in news_articles]
+                "news_headlines": [a.title for a in news_articles],
+                "borsapy_data": borsapy_data if borsapy_data else None
             }
             
             # 3. Analyze Sentiment & Provide LLM Interpretation
@@ -129,7 +141,8 @@ class AnalysisService:
                 news_sentiment=sentiment_result,
                 llm_analysis=llm_result,
                 final_signal=final_signal,
-                contradictions=contradictions
+                contradictions=contradictions,
+                borsapy_data=borsapy_data if borsapy_data else None
             )
         except Exception as e:
             logger.error(f"Analysis failed for {symbol}: {e}")

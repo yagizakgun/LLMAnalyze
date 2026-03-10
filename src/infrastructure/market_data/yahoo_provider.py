@@ -1,6 +1,6 @@
 import asyncio
 import yfinance as yf
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from ...core.interfaces.market_data import IMarketDataProvider
 from ...core.domain.models import OHLCV, StockInfo
@@ -106,3 +106,11 @@ class YahooFinanceProvider(IMarketDataProvider):
             logger.error(f"Error fetching info for {symbol}: {e}")
             # Fallback with basic info
             return StockInfo(symbol=symbol, company_name=symbol)
+
+    async def get_stock_fundamentals(self, symbol: str) -> Optional[dict]:
+        """Not implemented for Yahoo Finance provider - returns None."""
+        return None
+
+    async def get_analyst_data(self, symbol: str) -> Optional[dict]:
+        """Not implemented for Yahoo Finance provider - returns None."""
+        return None

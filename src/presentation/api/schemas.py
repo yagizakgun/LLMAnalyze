@@ -109,6 +109,7 @@ class AnalysisResponse(BaseModel):
     llm_analysis: Optional[LLMAnalysisResponse] = None
     final_signal: Optional[SignalResponse] = None
     contradictions: List[str] = []
+    borsapy_data: Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 

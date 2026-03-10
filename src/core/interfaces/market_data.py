@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 from ..domain.enums import TimeFrame
 from ..domain.models import OHLCV, StockInfo
+
 
 class IMarketDataProvider(ABC):
     @abstractmethod
@@ -17,4 +18,14 @@ class IMarketDataProvider(ABC):
     @abstractmethod
     async def get_stock_info(self, symbol: str) -> StockInfo:
         """Fetches company profile and basic info."""
+        pass
+
+    @abstractmethod
+    async def get_stock_fundamentals(self, symbol: str) -> Optional[dict]:
+        """Fetch fundamental analysis data (P/E, P/B, dividend yield, etc.)."""
+        pass
+
+    @abstractmethod
+    async def get_analyst_data(self, symbol: str) -> Optional[dict]:
+        """Fetch analyst price targets and recommendations."""
         pass
