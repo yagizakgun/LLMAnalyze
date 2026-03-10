@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # Market Data
     alpha_vantage_key: str = ""
+    default_market_provider: str = "yahoo"  # "yahoo" or "borsapy"
 
     # App Settings
     env: str = "development"

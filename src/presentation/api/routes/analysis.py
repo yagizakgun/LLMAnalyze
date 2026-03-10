@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from ..dependencies import get_analysis_service
 from ....application.services.analysis_service import AnalysisService
-from ....core.domain.enums import TimeFrame, LLMProviderType
+from ....core.domain.enums import TimeFrame, LLMProviderType, MarketDataProviderType
 from ....core.exceptions import MarketDataError, LLMProviderError, NewsProviderError
 from ..schemas import AnalysisResponse
 import logging
@@ -16,6 +16,7 @@ async def get_full_analysis(
     symbol: str,
     timeframe: TimeFrame = TimeFrame.D1,
     llm_provider: LLMProviderType = LLMProviderType.OPENAI,
+    market_provider: MarketDataProviderType = MarketDataProviderType.YAHOO,
     service: AnalysisService = Depends(get_analysis_service),
 ):
     """
@@ -23,7 +24,12 @@ async def get_full_analysis(
     Queries market data, technicals, news, and LLM concurrently.
     """
     try:
-        result = await service.run_full_analysis(symbol.upper(), timeframe, llm_provider)
+        result = await service.run_full_analysis(
+            symbol.upper(),
+            timeframe,
+            llm_provider,
+            market_provider
+        )
         return result
     except MarketDataError as e:
         logger.error(f"Market data error for {symbol}: {e}")

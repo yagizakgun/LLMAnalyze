@@ -158,3 +158,10 @@ cython_debug/
 # Project specific
 tmp/
 .claude/
+
+# UV
+.uv/
+.python-version
+*.egg-info/
+!*.egg-info/setup.cfg
+!*.egg-info/PKG-INFO

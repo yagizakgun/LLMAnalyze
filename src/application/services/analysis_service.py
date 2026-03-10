@@ -1,7 +1,7 @@
 import asyncio
-from typing import Dict, Any
+from typing import Any, Optional
 from ...core.domain.models import AnalysisResult, Signal, SignalType, TimeFrame
-from ...core.domain.enums import LLMProviderType, Sentiment
+from ...core.domain.enums import LLMProviderType, Sentiment, MarketDataProviderType
 from ...infrastructure.llm.factory import LLMFactory
 from ...core.interfaces.market_data import IMarketDataProvider
 from ...core.interfaces.news_provider import INewsProvider
@@ -16,24 +16,44 @@ class AnalysisService:
         llm_factory: LLMFactory,
         market_data: IMarketDataProvider,
         news: INewsProvider,
-        ta: ITechnicalAnalyzer
+        ta: ITechnicalAnalyzer,
+        market_provider_override: Optional[IMarketDataProvider] = None
     ):
         self.llm_factory = llm_factory
         self.market_data = market_data
         self.news = news
         self.ta = ta
+        self.market_provider_override = market_provider_override
 
-    async def run_full_analysis(self, symbol: str, timeframe: TimeFrame, llm_provider: LLMProviderType = LLMProviderType.OPENAI) -> AnalysisResult:
+    def _get_market_provider(self, provider_type: Optional[MarketDataProviderType] = None) -> IMarketDataProvider:
+        """Returns the market provider - override takes precedence, then fallback to default."""
+        if self.market_provider_override:
+            return self.market_provider_override
+        if provider_type and provider_type == MarketDataProviderType.BORSAPY:
+            from ...infrastructure.market_data.borsapy_provider import BorsapyProvider
+            return BorsapyProvider()
+        return self.market_data
+
+    async def run_full_analysis(
+        self,
+        symbol: str,
+        timeframe: TimeFrame,
+        llm_provider: LLMProviderType = LLMProviderType.OPENAI,
+        market_provider: Optional[MarketDataProviderType] = None
+    ) -> AnalysisResult:
         """Runs the complete analysis pipeline sequentially/concurrently where possible."""
-        logger.info(f"Starting full analysis for {symbol} on {timeframe} using {llm_provider}")
-        
+        logger.info(f"Starting full analysis for {symbol} on {timeframe} using {llm_provider}, market_provider={market_provider}")
+
         try:
             # Resolve LLM Provider
             llm = self.llm_factory.get_provider(llm_provider)
 
+            # Get the market data provider (using override if set, otherwise use requested type)
+            market_data = self._get_market_provider(market_provider)
+
             # 1. Fetch Market Data & Technical Analysis
-            price_task = self.market_data.get_current_price(symbol)
-            ohlcv_task = self.market_data.get_stock_data(symbol, timeframe, limit=250)
+            price_task = market_data.get_current_price(symbol)
+            ohlcv_task = market_data.get_stock_data(symbol, timeframe, limit=250)
             news_task = self.news.get_news_for_symbol(symbol, limit=5)
             
             # Run IO bound tasks concurrently

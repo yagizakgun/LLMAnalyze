@@ -10,6 +10,10 @@ class LLMProviderType(str, Enum):
     MOCK = "MOCK"
     GEMINI = "GEMINI"
 
+class MarketDataProviderType(str, Enum):
+    YAHOO = "yahoo"
+    BORSAPY = "borsapy"
+
 class TimeFrame(str, Enum):
     M1 = "1m"
     M5 = "5m"
